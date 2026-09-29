@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDB Molecule Viewer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.0.4/3Dmol-min.js"></script>
+<style>
+  :root{color-scheme:light;--paper:#f3f2ec;--surface:#fffefa;--line:#d9d9d0;--ink:#202923;--muted:#737d74;--green:#3b694e;--green-dark:#284a37;--orange:#d36a43;--stage:#e7ebe4}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--paper);color:var(--ink);font:14px/1.5 "Avenir Next",Avenir,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+  header{min-height:76px;padding:12px 28px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:34px;background:var(--surface)}
+  .brand{display:flex;align-items:center;gap:11px;min-width:200px}
+  .brand-mark{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--green);color:#fff;font:20px/1 Georgia,serif}
+  h1{font:600 19px/1 Georgia,"Times New Roman",serif;margin:0;letter-spacing:0}
+  .brand small{display:block;margin-top:5px;color:var(--muted);font-size:10px;letter-spacing:1.1px;text-transform:uppercase}
+  form{display:flex;gap:8px;max-width:450px;flex:1}
+  input,select,button{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:9px 11px}
+  input{width:100%;min-width:90px;text-transform:uppercase;letter-spacing:1.6px;font-weight:650}
+  input::placeholder{color:#92998f}
+  button{cursor:pointer;background:var(--green);color:#fff;border-color:var(--green);font-weight:600;white-space:nowrap}
+  button:hover{background:var(--green-dark);border-color:var(--green-dark)}
+  button:disabled{opacity:.6;cursor:wait}
+  button.ghost{background:transparent;color:var(--ink);border-color:var(--line);font-weight:500}
+  button.ghost:hover{background:#eef0e9}
+  :focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+  main{flex:1;display:flex;min-height:0;padding:20px 24px 24px;gap:18px}
+  #view{flex:1;position:relative;min-width:0;min-height:420px;background:var(--stage);border:1px solid #d7ddd4;border-radius:5px;overflow:hidden}
+  #stage{position:absolute;inset:0}
+  .view-head{position:absolute;z-index:2;top:15px;left:17px;display:flex;align-items:center;gap:8px;color:#4e5e52;font-size:11px;letter-spacing:1px;text-transform:uppercase;pointer-events:none}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--orange)}
+  .controls{position:absolute;z-index:2;top:11px;right:12px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;max-width:calc(100% - 150px)}
+  .controls label{display:flex;align-items:center;gap:6px;padding:0 0 0 8px;color:var(--muted);font-size:11px;background:var(--surface);border:1px solid var(--line);border-radius:4px}
+  .controls select{border:0;padding:7px 8px 7px 0;font-size:12px;max-width:150px}
+  .controls button{padding:7px 10px;font-size:12px}
+  aside{width:278px;flex:none;background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:22px 20px;overflow:auto}
+  .eyebrow{margin:0 0 12px;color:var(--orange);font-size:10px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase}
+  aside h2{font:600 23px/1.17 Georgia,"Times New Roman",serif;margin:0 0 10px;overflow-wrap:anywhere}
+  aside #sub{color:var(--muted);font-size:12px;line-height:1.6}
+  aside dl{margin:24px 0 0;display:grid;grid-template-columns:1fr auto;gap:11px 12px;font-size:12px}
+  aside dt{color:var(--muted)}
+  aside dd{margin:0;text-align:right;font-weight:600}
+  .msg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;color:var(--muted);width:min(440px,calc(100% - 32px));padding:25px;background:rgba(255,254,250,.88);border:1px solid rgba(217,217,208,.85);border-radius:5px;backdrop-filter:blur(8px);animation:arrive .35s ease-out both}
+  .msg strong{display:block;margin-bottom:8px;color:var(--ink);font:600 23px/1.15 Georgia,"Times New Roman",serif}
+  .msg.err{color:#a6492d;border-color:#e9c5b8}
+  .msg.err strong{color:#a6492d}
+  .chips{margin-top:16px;display:flex;flex-wrap:wrap;justify-content:center;gap:7px}
+  .chips button{padding:6px 9px;font-size:11px;background:var(--surface);color:var(--ink);border-color:var(--line);font-weight:500}
+  .chips button:hover{border-color:var(--green);color:var(--green)}
+  @keyframes arrive{from{opacity:0;transform:translate(-50%,-47%)}to{opacity:1;transform:translate(-50%,-50%)}}
+  @media (max-width:850px){header{padding:12px 18px;gap:18px}.brand{min-width:172px}main{padding:14px;gap:12px}aside{width:240px;padding:18px}}
+  @media (max-width:680px){header{align-items:flex-start;flex-direction:column;gap:12px;padding:14px 16px}.brand{min-width:0}.brand-mark{width:30px;height:30px}form{width:100%;max-width:none}main{flex-direction:column;padding:10px;gap:10px}#view{min-height:56vh;flex:none}.view-head{top:12px;left:12px}.controls{top:auto;bottom:10px;left:10px;right:10px;max-width:none;justify-content:center}.controls label{flex:1;justify-content:space-between}.controls select{max-width:120px}aside{width:100%;max-height:34vh;padding:16px}aside h2{font-size:20px}aside dl{margin-top:16px;grid-template-columns:1fr 1fr}.msg{padding:20px 14px}.msg strong{font-size:20px}}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">∿</span>
+    <div><h1>Molecular Field</h1><small>Structure explorer</small></div>
+  </div>
+  <form id="f">
+    <input id="id" maxlength="4" placeholder="Enter a PDB ID · e.g. 1CRN" aria-label="PDB ID" autocomplete="off" spellcheck="false" required>
+    <button type="submit">View structure</button>
+  </form>
+  <button type="button" class="ghost" id="home" hidden>Home</button>
+</header>
+<main>
+  <div id="view">
+    <div id="stage"></div>
+    <div class="view-head"><span class="live-dot"></span><span>3D structure</span></div>
+    <div class="controls">
+      <label>Style<select id="style"><option value="cartoon">Cartoon</option><option value="stick">Sticks</option><option value="sphere">Spheres</option><option value="line">Lines</option><option value="surface">Surface</option></select></label>
+      <label>Colour<select id="color"><option value="spectrum">Rainbow</option><option value="chain">By chain</option><option value="ss">Secondary structure</option><option value="element">By element</option></select></label>
+      <button type="button" class="ghost" id="spin">Spin</button>
+      <button type="button" class="ghost" id="reset">Reset view</button>
+      <button type="button" class="ghost" id="png">Save PNG</button>
+    </div>
+    <div class="msg" id="msg">
+      <strong id="msgTitle">A closer look at life</strong>
+      <span id="msgText">Enter a PDB ID or start with a structure below.</span>
+      <div class="chips" id="chips"></div>
+    </div>
+  </div>
+  <aside>
+    <p class="eyebrow">Structure details</p>
+    <h2 id="title">No structure loaded</h2>
+    <div id="sub">Drag to rotate, scroll to zoom, right-drag or two fingers to pan.</div>
+    <dl id="meta"></dl>
+  </aside>
+</main>
+
+<script>
+const q = s => document.querySelector(s);
+const examples = [["1CRN","Crambin"],["1HHO","Haemoglobin"],["4HHB","Haemoglobin (T)"],["1BNA","DNA helix"],["6LU7","SARS-CoV-2 protease"],["1GFL","GFP"],["3J3Q","HIV capsid"]];
+q("#chips").innerHTML = examples.map(([i,n])=>`<button type="button" data-id="${i}">${i} · ${n}</button>`).join("");
+q("#chips").addEventListener("click", e => { const id = e.target.dataset.id; if(id){ q("#id").value = id; load(id); } });
+
+
+/* ---------- Canvas 2D fallback (no WebGL needed) ---------- */
+function makeMini(el){
+  const cv = document.createElement("canvas");
+  cv.style.cssText = "width:100%;height:100%;display:block;touch-action:none;cursor:grab";
+  el.innerHTML = ""; el.appendChild(cv);
+  const ctx = cv.getContext("2d");
+  const CPK = {C:"#9aa5a8",N:"#4a7cff",O:"#ff4d4d",S:"#f5d33f",P:"#ff9f1a",H:"#e8e8e8",FE:"#e06b2b",ZN:"#7d80b0",CA:"#3dff00",MG:"#8aff00"};
+  const PAL = ["#4fd1c5","#f6ad55","#9f7aea","#68d391","#fc8181","#63b3ed","#f687b3","#ecc94b"];
+  let atoms=[], bonds=[], bb=[], ss={}, chains=[], cen=[0,0,0], R=30, zoom=1, ax=.3, ay=0, mode="cartoon", col="spectrum", raf=0, spinning=false;
+  const sz = () => { const d=devicePixelRatio||1; const w=Math.max(1,el.clientWidth), h=Math.max(1,el.clientHeight); if(cv.width!==w*d||cv.height!==h*d){cv.width=w*d;cv.height=h*d;} return d; };
+
+  function color(a, t){
+    if(col==="element") return CPK[a.el]||"#c0a0ff";
+    if(col==="chain") return PAL[Math.max(0,chains.indexOf(a.ch))%PAL.length];
+    if(col==="ss"){ const k=ss[a.ch+a.resi]; return k==="H"?"#ff5a6e":k==="E"?"#f6d34a":"#8fb3c4"; }
+    return `hsl(${Math.round(260*(1-t))},75%,58%)`;
+  }
+  function draw(){
+    const d=sz(), W=cv.width, H=cv.height; ctx.clearRect(0,0,W,H);
+    if(!atoms.length) return;
+    const k=Math.min(W,H)/(2.3*R)*zoom, ca=Math.cos(ay), sa=Math.sin(ay), cx=Math.cos(ax), sx=Math.sin(ax);
+    for(const a of atoms){
+      const x=a.x-cen[0], y=a.y-cen[1], z=a.z-cen[2];
+      const x1=x*ca+z*sa, z1=-x*sa+z*ca;
+      a.sx=W/2+x1*k; a.sy=H/2+(y*cx-z1*sx)*k; a.sz=y*sx+z1*cx;
+    }
+    const fade = z => Math.max(.25, Math.min(1, .65 - z/(2.5*R)));
+    if(mode==="cartoon"){
+      ctx.lineCap="round"; ctx.lineJoin="round";
+      const segs=[];
+      for(let i=1;i<bb.length;i++){ const p=bb[i-1], c=bb[i]; if(p.ch===c.ch && Math.hypot(p.x-c.x,p.y-c.y,p.z-c.z)<9) segs.push([p,c,i]); }
+      segs.sort((u,v)=>v[0].sz+v[1].sz-u[0].sz-u[1].sz);
+      for(const [p,c,i] of segs){ ctx.globalAlpha=fade((p.sz+c.sz)/2); ctx.strokeStyle=color(c,i/bb.length); ctx.lineWidth=Math.max(1.5*d, 0.9*k*(ss[c.ch+c.resi]?1.6:1)); ctx.beginPath(); ctx.moveTo(p.sx,p.sy); ctx.lineTo(c.sx,c.sy); ctx.stroke(); }
+      ctx.globalAlpha=1;
+      const het=atoms.filter(a=>a.het).sort((u,v)=>v.sz-u.sz);
+      for(const a of het){ ctx.globalAlpha=fade(a.sz); ctx.fillStyle=CPK[a.el]||"#c0a0ff"; ctx.beginPath(); ctx.arc(a.sx,a.sy,Math.max(1.5*d,.6*k),0,6.283); ctx.fill(); }
+    } else if(mode==="stick"||mode==="line"){
+      ctx.lineCap="round"; ctx.lineWidth = mode==="stick" ? Math.max(1.5*d,.35*k) : Math.max(1*d,.1*k);
+      const bs=bonds.slice().sort((u,v)=>v[0].sz+v[1].sz-u[0].sz-u[1].sz);
+      for(const [p,c] of bs){ ctx.globalAlpha=fade((p.sz+c.sz)/2); ctx.strokeStyle=color(c,c.i/atoms.length); ctx.beginPath(); ctx.moveTo(p.sx,p.sy); ctx.lineTo(c.sx,c.sy); ctx.stroke(); }
+      ctx.globalAlpha=1;
+    } else {
+      const order=atoms.slice().sort((u,v)=>v.sz-u.sz);
+      for(const a of order){ ctx.globalAlpha=fade(a.sz); ctx.fillStyle=color(a,a.i/atoms.length); ctx.beginPath(); ctx.arc(a.sx,a.sy,Math.max(1.2*d,1.5*k*.6),0,6.283); ctx.fill(); }
+      ctx.globalAlpha=1;
+    }
+  }
+  function parse(txt){
+    atoms=[];bonds=[];bb=[];ss={};chains=[];
+    for(const l of txt.split("\n")){
+      const r=l.slice(0,6);
+      if(r==="ENDMDL") break;
+      if(r==="HELIX "||r==="SHEET "){
+        const ch = r==="HELIX " ? l[19] : l[21];
+        const a = parseInt(r==="HELIX " ? l.slice(21,25) : l.slice(22,26)), b = parseInt(r==="HELIX " ? l.slice(33,37) : l.slice(33,37));
+        for(let n=a;n<=b;n++) ss[ch+n]= r==="HELIX " ? "H":"E";
+      } else if(r==="ATOM  "||r==="HETATM"){
+        const resn=l.slice(17,20).trim(); if(resn==="HOH"||resn==="WAT") continue;
+        const name=l.slice(12,16).trim();
+        const el=((l.slice(76,78).trim())||name.replace(/[0-9]/g,"").charAt(0)).toUpperCase();
+        const a={x:+l.slice(30,38),y:+l.slice(38,46),z:+l.slice(46,54),el,name,resn,ch:l[21],resi:parseInt(l.slice(22,26)),het:r==="HETATM",i:atoms.length};
+        if(isNaN(a.x)) continue;
+        atoms.push(a);
+        if(!chains.includes(a.ch)) chains.push(a.ch);
+        if(!a.het && (name==="CA"||name==="P"||name==="C4'")) bb.push(a);
+      }
+    }
+    if(atoms.length>60000) atoms=atoms.filter((a,i)=>i%2===0);
+    // bonds via spatial grid
+    const g=new Map(), key=(i,j,k)=>i+","+j+","+k;
+    for(const a of atoms){ const kk=key(Math.floor(a.x/2),Math.floor(a.y/2),Math.floor(a.z/2)); (g.get(kk)||g.set(kk,[]).get(kk)).push(a); }
+    for(const a of atoms){
+      const i=Math.floor(a.x/2),j=Math.floor(a.y/2),k=Math.floor(a.z/2);
+      for(let u=-1;u<=1;u++)for(let v=-1;v<=1;v++)for(let w=-1;w<=1;w++){
+        const cell=g.get(key(i+u,j+v,k+w)); if(!cell) continue;
+        for(const b of cell){ if(b.i>a.i){ const dd=Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z); if(dd<1.9 && dd>.4) bonds.push([a,b]); } }
+      }
+    }
+  }
+  let drag=null;
+  cv.addEventListener("pointerdown",e=>{drag=[e.clientX,e.clientY];cv.setPointerCapture(e.pointerId);cv.style.cursor="grabbing";});
+  cv.addEventListener("pointerup",()=>{drag=null;cv.style.cursor="grab";});
+  cv.addEventListener("pointermove",e=>{ if(!drag) return; ay+=(e.clientX-drag[0])*.01; ax+=(e.clientY-drag[1])*.01; drag=[e.clientX,e.clientY]; draw(); });
+  cv.addEventListener("wheel",e=>{ e.preventDefault(); zoom=Math.max(.2,Math.min(12,zoom*(e.deltaY<0?1.1:.9))); draw(); },{passive:false});
+  function loop(){ if(!spinning) return; ay+=.01; draw(); raf=requestAnimationFrame(loop); }
+  return {
+    isMini:true,
+    clear(){atoms=[];bonds=[];bb=[];draw();},
+    addModel(data,fmt){ if(fmt==="cif") throw new Error("This structure is only available as mmCIF, which the simple renderer can't read."); parse(data); },
+    zoomTo(){ if(!atoms.length) return; const n=atoms.length; cen=[0,1,2].map(i=>atoms.reduce((s,a)=>s+[a.x,a.y,a.z][i],0)/n); R=Math.max(5,...atoms.map(a=>Math.hypot(a.x-cen[0],a.y-cen[1],a.z-cen[2]))); zoom=1; ax=.3; ay=0; },
+    render(){draw();},
+    spin(on){ spinning=!!on; cancelAnimationFrame(raf); if(on) loop(); },
+    resize(){draw();},
+    pngURI(){ return cv.toDataURL("image/png"); },
+    setMode(m,c){ mode=m; col=c; draw(); }
+  };
+}
+
+let viewer = null;
+async function ensureViewer(){
+  if(viewer) return viewer;
+  if(!window.$3Dmol){
+    await new Promise(res => {
+      const sc = document.createElement("script");
+      sc.src = "https://cdn.jsdelivr.net/npm/3dmol@2.0.4/build/3Dmol-min.js";
+      sc.onload = res; sc.onerror = res;
+      document.head.appendChild(sc);
+    });
+  }
+  if(!window.$3Dmol) throw new Error("The 3D viewer library could not be downloaded from either CDN. Check that cdnjs.cloudflare.com or cdn.jsdelivr.net isn't blocked.");
+  const probe = document.createElement("canvas");
+  const gl = probe.getContext("webgl2") || probe.getContext("webgl") || probe.getContext("experimental-webgl");
+  const el = document.getElementById("stage");
+  if(!el.clientWidth || !el.clientHeight) throw new Error("The viewer area has no size (" + el.clientWidth + "x" + el.clientHeight + ").");
+  const dbg = gl && gl.getExtension("WEBGL_debug_renderer_info");
+  const renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : "unknown";
+  const NEW = "https://cdn.jsdelivr.net/npm/3dmol@2.4.2/build/3Dmol-min.js";
+  const attempts = !gl ? [] : [
+    {src:null, cfg:{backgroundAlpha:0}},
+    {src:null, cfg:{backgroundAlpha:0, antialias:false}},
+    {src:NEW,  cfg:{backgroundAlpha:0}},
+    {src:NEW,  cfg:{backgroundAlpha:0, antialias:false}}
+  ];
+  let loadedSrc = null, lastErr = null;
+  for(const a of attempts){
+    try{
+      if(a.src && a.src !== loadedSrc){
+        await new Promise(res => { const sc=document.createElement("script"); sc.src=a.src; sc.onload=res; sc.onerror=res; document.head.appendChild(sc); });
+        loadedSrc = a.src;
+      }
+      el.innerHTML = "";
+      viewer = $3Dmol.createViewer(el, a.cfg);
+      break;
+    } catch(e){ lastErr = e; viewer = null; console.warn("3Dmol attempt failed", a, e); }
+  }
+  if(!viewer){
+    console.warn("Falling back to 2D renderer. renderer:", renderer, "last error:", lastErr);
+    el.innerHTML = "";
+    viewer = makeMini(el);
+  }
+  return viewer;
+}
+let loaded = false, spinning = false;
+
+function showMsg(text, err){ const m=q("#msg"); m.className="msg"+(err?" err":""); q("#msgTitle").textContent=err?"Could not load structure":text.startsWith("Loading")?"Fetching structure":"A closer look at life"; q("#msgText").textContent=text; m.style.display="block"; }
+function hideMsg(){ q("#msg").style.display="none"; }
+
+function colorSpec(mode){
+  return mode==="spectrum" ? {color:"spectrum"} :
+         mode==="chain" ? {colorscheme:"chain"} :
+         mode==="ss" ? {colorscheme:"ssPyMOL"} :
+         {colorscheme:"default"};
+}
+function applyStyle(){
+  if(viewer.isMini){ viewer.setMode(q("#style").value, q("#color").value); return; }
+  const s=q("#style").value, c=colorSpec(q("#color").value);
+  viewer.removeAllSurfaces();
+  viewer.setStyle({},{});
+  const hetero = {hetflag:true};
+  if(s==="surface"){
+    viewer.setStyle({}, {cartoon:{...c, opacity:.6}});
+    viewer.addSurface($3Dmol.SurfaceType.VDW, {opacity:.75, ...c}, {hetflag:false});
+  } else {
+    viewer.setStyle({}, {[s]:c});
+  }
+  viewer.addStyle(hetero, {stick:{colorscheme:"default", radius:.2}});
+  viewer.setStyle({resn:"HOH"}, {});
+  viewer.render();
+}
+
+async function load(raw){
+  const id = raw.trim().toUpperCase();
+  if(!/^[0-9][A-Z0-9]{3}$/.test(id)){ showMsg("PDB IDs are 4 characters and start with a digit, like 1CRN.", true); return; }
+  showMsg("Loading " + id + "…");
+  try{
+    await ensureViewer();
+    const [pdbRes, infoRes] = await Promise.all([
+      fetch(`https://files.rcsb.org/download/${id}.pdb`),
+      fetch(`https://data.rcsb.org/rest/v1/core/entry/${id}`).catch(()=>null)
+    ]);
+    let data, fmt = "pdb";
+    if(pdbRes.ok){ data = await pdbRes.text(); }
+    else {
+      // large structures only exist as mmCIF
+      const cif = await fetch(`https://files.rcsb.org/download/${id}.cif`);
+      if(!cif.ok) throw new Error(`No structure found for ${id}. Check the ID and try again.`);
+      data = await cif.text(); fmt = "cif";
+    }
+    viewer.clear();
+    viewer.addModel(data, fmt);
+    applyStyle();
+    viewer.zoomTo();
+    viewer.render();
+    loaded = true;
+    q("#home").hidden = false;
+    hideMsg();
+    let info = null;
+    if(infoRes && infoRes.ok) info = await infoRes.json();
+    renderInfo(id, info);
+  } catch(err){
+    console.error(err);
+    const inFrame = window.self !== window.top;
+    showMsg(String(err.message).startsWith("No structure") ? err.message :
+      (err instanceof TypeError && /fetch|network|load/i.test(err.message))
+        ? "Request to RCSB was blocked or failed" + (inFrame || location.protocol==="blob:" ? " (this page is running inside a preview that blocks outside requests; download the file and open it in your browser)." : ". Check your connection and open the browser console for details.")
+        : "Something went wrong: " + String((err && err.message) || err), true);
+  }
+}
+
+function renderInfo(id, info){
+  q("#title").textContent = info?.struct?.title || id;
+  q("#sub").textContent = id + (viewer && viewer.isMini ? " (simple 2D renderer: WebGL unavailable here)" : "");
+  const rows = [];
+  if(info){
+    const yr = info.rcsb_accession_info?.initial_release_date?.slice(0,4);
+    const res = info.rcsb_entry_info?.resolution_combined?.[0];
+    rows.push(["Method", info.exptl?.[0]?.method], ["Resolution", res ? res+" Å" : null],
+              ["Released", yr], ["Weight", info.rcsb_entry_info?.molecular_weight ? info.rcsb_entry_info.molecular_weight.toFixed(1)+" kDa" : null],
+              ["Chains", info.rcsb_entry_info?.polymer_entity_count_protein != null ? info.rcsb_entry_info.deposited_polymer_entity_instance_count : null]);
+  }
+  q("#meta").innerHTML = rows.filter(r=>r[1]).map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join("");
+  const url = `https://www.rcsb.org/structure/${id}`;
+  q("#meta").insertAdjacentHTML("beforeend", `<dt>Source</dt><dd><a href="${url}" target="_blank" rel="noopener" style="color:var(--acc)">rcsb.org/${id}</a></dd>`);
+}
+
+q("#f").addEventListener("submit", e => { e.preventDefault(); load(q("#id").value); });
+q("#home").addEventListener("click", () => {
+  if(viewer){ viewer.spin(false); viewer.clear(); viewer.render(); }
+  loaded = false;
+  spinning = false;
+  q("#spin").textContent = "Spin";
+  q("#home").hidden = true;
+  q("#id").value = "";
+  q("#title").textContent = "No structure loaded";
+  q("#sub").textContent = "Drag to rotate, scroll to zoom, right-drag or two fingers to pan.";
+  q("#meta").innerHTML = "";
+  showMsg("Enter a PDB ID or start with a structure below.");
+});
+["style","color"].forEach(k => q("#"+k).addEventListener("change", () => loaded && applyStyle()));
+q("#spin").addEventListener("click", () => { if(!viewer) return; spinning=!spinning; viewer.spin(spinning ? "y" : false); q("#spin").textContent = spinning ? "Stop" : "Spin"; });
+q("#reset").addEventListener("click", () => { if(!viewer) return; viewer.zoomTo(); viewer.render(); });
+q("#png").addEventListener("click", () => {
+  if(!loaded) return;
+  const a = document.createElement("a");
+  a.href = viewer.pngURI(); a.download = (q("#id").value || "molecule").toUpperCase() + ".png"; a.click();
+});
+window.addEventListener("resize", () => viewer && viewer.resize());
+</script>
+</body>
+</html>
